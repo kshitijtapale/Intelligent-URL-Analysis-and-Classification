@@ -1,0 +1,7 @@
+import numpy as np
+
+train_data = np.load('app/Test/transformed_train_data.npy')
+test_data = np.load('app/Test/transformed_test_data.npy')
+
+print(f'Train data shape: {train_data.shape}')  # Check shape
+print(f'Test data shape: {test_data.shape}')    # Check shape
