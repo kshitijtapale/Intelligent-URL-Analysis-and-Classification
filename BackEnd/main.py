@@ -7,7 +7,6 @@ import uvicorn
 from typing import List, Dict, Optional
 import os
 from app.ml.feature_extraction import FeatureExtractor
-from app.ml.predictor import Predictor
 from app.ml.url_predictor import URLPredictor
 from app.ml.model_trainer import ModelTrainer
 from app.ml.bulk_feature_extraction import BulkFeatureExtractor
@@ -25,7 +24,7 @@ app = FastAPI(title="Malicious URL Detector", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["chrome-extension://"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
