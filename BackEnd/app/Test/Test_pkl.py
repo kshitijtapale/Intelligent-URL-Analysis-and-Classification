@@ -1,7 +1,11 @@
-import joblib
+import pickle
 
-# Load the preprocessor
-preprocessor = joblib.load('app\Test\Test_npy')
+# Replace 'file_path.pkl' with the path to your .pkl file
+file_path = 'app/Test/feature_selector.pkl'
 
-# Check the type of the preprocessor
-print(type(preprocessor))
+# Open the file in read-binary mode and load the data
+with open(file_path, 'rb') as file:
+    data = pickle.load(file)
+
+# Print the content of the .pkl file
+print(data)

@@ -2,9 +2,10 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, sta
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import numpy as np
+import pandas as pd
 from pydantic import BaseModel, HttpUrl
 import uvicorn
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Tuple
 import os
 from app.ml.feature_extraction import FeatureExtractor
 from app.ml.url_predictor import URLPredictor
@@ -13,10 +14,7 @@ from app.ml.bulk_feature_extraction import BulkFeatureExtractor
 from app.config import settings
 from app.logger import setup_logger
 from app.exceptions import DataIngestionError, DataTransformationError, PredictionError, ModelTrainerError
-from app.ml.data_ingestion_transformation import DataIngestionTransformation  # New import
-from sklearn.feature_selection import SelectKBest, f_classif
-import pandas as pd
-import joblib
+from app.ml.data_ingestion_transformation import DataIngestionTransformation
 
 logger = setup_logger(__name__)
 
@@ -92,6 +90,37 @@ def get_feature_extractor():
 async def root():
     return {"message": "Welcome to the Malicious URL Detector API"}
 
+class PredictionOutput(BaseModel):
+    url: str
+    prediction: str
+    confidence: float
+    feature_contributions: Dict[str, float]
+    top_indicators: List[Tuple[str, float]]
+
+class ModelTrainingOutput(BaseModel):
+    message: str
+    best_model: str
+    best_model_performance: Dict[str, float]
+    all_models_performance: Dict[str, Dict[str, float]]
+    selected_features: List[str]
+    best_model_file_path: str
+
+# Update the response models
+   
+class ModelPerformance(BaseModel):
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+
+class ModelTrainingResponse(BaseModel):
+    message: str
+    best_model: str
+    model_performance: ModelPerformance
+    selected_features: List[str]
+    best_model_file_path: str
+    all_models_performance: Dict[str, ModelPerformance]
+
 # New API endpoint for data ingestion and transformation
 @app.post("/api/ingest_transform_data", response_model=Dict[str, str])
 async def ingest_transform_data(
@@ -144,74 +173,56 @@ async def train_model(
     data_ingestion_transformation: DataIngestionTransformation = Depends(get_data_ingestion_transformation)
 ):
     try:
-        # Load the transformed data
         train_path = os.path.join(settings.TRAIN_DATA_DIR, "transformed_train_data.csv")
         test_path = os.path.join(settings.TEST_DATA_DIR, "transformed_test_data.csv")
 
         if not os.path.exists(train_path) or not os.path.exists(test_path):
-            raise HTTPException(status_code=400, detail="Transformed data not found. Please run data transformation first.")
+            raise HTTPException(
+                status_code=400,
+                detail="Transformed data not found. Please run data transformation first."
+            )
 
         train_df = pd.read_csv(train_path)
         test_df = pd.read_csv(test_path)
 
-        # Split features and target
         X_train = train_df.drop('label', axis=1)
         y_train = train_df['label']
         X_test = test_df.drop('label', axis=1)
         y_test = test_df['label']
 
-        # Feature Selection using SelectKBest
-        selector = SelectKBest(score_func=f_classif, k=13)  # Select top 13 features
-        X_train_selected = selector.fit_transform(X_train, y_train)
-        X_test_selected = selector.transform(X_test)
-
-        # Get the selected feature names
-        selected_features = X_train.columns[selector.get_support()].tolist()
-        logger.info(f"Selected Features: {selected_features}")
-
-        # Initiate model training
-        best_model = model_trainer.initiate_model_training(X_train_selected, y_train, X_test_selected, y_test)
-
-        # Save selected features
-        preprocessor_file_path = os.path.join(settings.PREPROCESSOR_MODEL_DIR, settings.PREPROCESSOR_FILENAME)
-        preprocessor_dict = {"features": selected_features}
-        with open(preprocessor_file_path, 'wb') as f:
-            joblib.dump(preprocessor_dict, f)
-        logger.info(f"Saved selected features to {preprocessor_file_path}")
+        training_results = model_trainer.initiate_model_training(X_train, y_train, X_test, y_test)
 
         return {
-            "message": "Model training completed successfully",
-            "best_model": best_model['Model Name'],
-            "best_model_accuracy": best_model['accuracy'],
-            "best_model_precision": best_model['precision'],
-            "best_model_recall": best_model['recall'],
-            "best_model_f1_score": best_model['f1_score'],
-            "selected_features": selected_features,
-            "best_model_file_path": os.path.join(settings.READY_MODEL_DIR, f"{best_model['Model Name']}.pkl")
+            "message": training_results["message"],
+            "best_model": training_results["best_model"],
+            "model_performance": training_results["model_performance"],
+            "selected_features": training_results["selected_features"],
+            "best_model_file_path": training_results["best_model_file_path"],
+            "all_models_performance": training_results["all_models_performance"]
         }
-    except ModelTrainerError as e:
-        logger.error(f"Error in model training: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+
     except Exception as e:
         logger.error(f"Unexpected error in model training: {str(e)}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred during model training")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An unexpected error occurred during model training: {str(e)}"
+        )
 
-@app.post("/api/predict_url", response_model=PredictionOutput)
-async def predict_url(url_input: URLInput, url_predictor: URLPredictor = Depends(get_url_predictor)):
+
+@app.post("/api/predict_url", response_model=Dict[str, Any])
+async def predict_url(
+    url_input: URLInput,
+    url_predictor: URLPredictor = Depends(get_url_predictor)
+):
     try:
         prediction_result = url_predictor.predict(str(url_input.url))
-        
-        return PredictionOutput(
-            url=str(url_input.url),
-            prediction=prediction_result["result"],
-            confidence=prediction_result["confidence"]
-        )
-    except PredictionError as e:
-        logger.error(f"Error in URL prediction: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        return prediction_result
     except Exception as e:
         logger.error(f"Unexpected error in URL prediction: {str(e)}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred during prediction")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An unexpected error occurred during prediction: {str(e)}"
+        )
 
 
 
