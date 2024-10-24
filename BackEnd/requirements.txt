@@ -19,3 +19,7 @@ lightgbm
 joblib
 psutil
 scipy
+tldextract
+dnspython
+chardet
+tqdm

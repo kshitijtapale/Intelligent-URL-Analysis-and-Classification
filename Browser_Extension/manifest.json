@@ -1,0 +1,31 @@
+{
+  "manifest_version": 2,
+  "name": "Malicious URL Detector",
+  "version": "1.0",
+  "description": "Detects and blocks malicious URLs while browsing",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>",
+    "tabs",
+    "storage",
+    "notifications"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/safe16.png",
+      "48": "icons/safe48.png",
+      "128": "icons/safe128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/safe16.png",
+    "48": "icons/safe48.png",
+    "128": "icons/safe128.png"
+  }
+}
