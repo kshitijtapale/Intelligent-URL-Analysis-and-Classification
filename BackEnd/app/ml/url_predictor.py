@@ -76,7 +76,7 @@ class URLPredictor:
             prediction = self.model.predict(processed_data)[0]
             prediction_proba = self.model.predict_proba(processed_data)[0]
             
-            result = "BEWARE MALICIOUS WEBSITE" if prediction == 1 else "SAFE WEBSITE"
+            result = "BEWARE_MALICIOUS_WEBSITE" if prediction == 1 else "SAFE_WEBSITE"
             confidence = float(prediction_proba[1] if prediction == 1 else prediction_proba[0])
             
             # Get feature importance
