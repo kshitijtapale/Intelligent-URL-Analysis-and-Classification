@@ -23,3 +23,9 @@ tldextract
 dnspython
 chardet
 tqdm
+mysql-connector-python
+sqlalchemy
+databases 
+asyncpg  
+aiomysql
+mysqlclient

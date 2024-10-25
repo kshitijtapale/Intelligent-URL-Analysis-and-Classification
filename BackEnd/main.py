@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, confloat
 import uvicorn
 from typing import List, Dict, Optional, Any, Tuple
 import os
@@ -11,10 +11,16 @@ from app.ml.feature_extraction import FeatureExtractor
 from app.ml.url_predictor import URLPredictor
 from app.ml.model_trainer import ModelTrainer
 from app.ml.bulk_feature_extraction import BulkFeatureExtractor
+from app.ml.adaptive_learner import AdaptiveLearner
 from app.config import settings
 from app.logger import setup_logger
 from app.exceptions import DataIngestionError, DataTransformationError, PredictionError, ModelTrainerError
 from app.ml.data_ingestion_transformation import DataIngestionTransformation
+from sqlalchemy.orm import Session
+from fastapi import FastAPI, HTTPException, Depends
+from app.models.url_feedback import init_db, get_db
+from app.models.init_db import create_database
+
 
 logger = setup_logger(__name__)
 
@@ -27,7 +33,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+@app.on_event("startup")
+async def startup_event():
+    try:
+        # Create database if it doesn't exist
+        create_database()
+        # Initialize tables
+        init_db()
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+    
 # Request and Response Models
 class URLInput(BaseModel):
     url: HttpUrl
@@ -120,6 +136,14 @@ class ModelTrainingResponse(BaseModel):
     selected_features: List[str]
     best_model_file_path: str
     all_models_performance: Dict[str, ModelPerformance]
+
+class FeedbackInput(BaseModel):
+    url: HttpUrl
+    is_malicious: bool
+    confidence: confloat(ge=0.0, le=1.0)
+
+def get_adaptive_learner():
+    return AdaptiveLearner()
 
 # New API endpoint for data ingestion and transformation
 @app.post("/api/ingest_transform_data", response_model=Dict[str, str])
@@ -224,7 +248,56 @@ async def predict_url(
             detail=f"An unexpected error occurred during prediction: {str(e)}"
         )
 
-
+@app.post("/api/feedback")
+async def process_feedback(
+    feedback: FeedbackInput,
+    db: Session = Depends(get_db),
+    adaptive_learner: AdaptiveLearner = Depends(get_adaptive_learner)
+):
+    try:
+        result = await adaptive_learner.process_feedback(
+            str(feedback.url),
+            feedback.is_malicious,
+            feedback.confidence,
+            db
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error processing feedback: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing feedback: {str(e)}"
+        )
+        
+@app.post("/api/retrain")
+async def retrain_model(
+    db: Session = Depends(get_db),
+    adaptive_learner: AdaptiveLearner = Depends(get_adaptive_learner)
+):
+    try:
+        result = await adaptive_learner.retrain_model(db)
+        return result
+    except Exception as e:
+        logger.error(f"Error retraining model: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retraining model: {str(e)}"
+        )
+        
+@app.get("/api/training_stats")
+async def get_training_stats(
+    db: Session = Depends(get_db),
+    adaptive_learner: AdaptiveLearner = Depends(get_adaptive_learner)
+):
+    try:
+        stats = await adaptive_learner.get_training_stats(db)
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting training stats: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting training stats: {str(e)}"
+        )
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=settings.PORT, reload=True)

@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 import os
+from typing import ClassVar  
 
 class Settings(BaseSettings):
     APP_NAME: str = "Malicious URL Detector"
@@ -16,6 +17,14 @@ class Settings(BaseSettings):
     PREPROCESSOR_FILENAME: str = "preprocessor.pkl"
     PORT: int = 8000
     LOG_LEVEL: str = "INFO"
+    DB_HOST: str = "localhost"
+    DB_USER: str = "root"  # Replace with your MySQL username
+    DB_PASSWORD: str = "root"  # Replace with your MySQL password
+    DB_NAME: str = "url"
+    DATABASE_URL: str = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+    
+
+
 
     class Config:
         env_file = ".env"
