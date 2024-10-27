@@ -1,8 +1,10 @@
-import React from 'react';
-import { Box, Typography, Paper, Chip, Grid, LinearProgress } from '@mui/material';
-import { AlertTriangle, Shield, MapPin, Server, Globe, Check, AlertCircle } from 'lucide-react';
-
+import React, { useState } from 'react';
+import { Box, Typography, Paper, Chip, Grid, LinearProgress, Button } from '@mui/material';
+import { AlertTriangle, Shield, MapPin, Server, Globe, Check, AlertCircle, MessageSquare } from 'lucide-react';
+import URLFeedbackDialog from './URLFeedback';
 const URLAnalysisResult = ({ analysis, isLoading }) => {
+
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   if (isLoading) {
     return (
       <Box sx={{ width: '100%', mt: 2 }}>
@@ -28,7 +30,7 @@ const URLAnalysisResult = ({ analysis, isLoading }) => {
 
   return (
     <Box sx={{ mt: 4, width: '100%' }}>
-      {/* Prediction Status */}
+      {/* Prediction Status with Feedback Button */}
       <Paper 
         elevation={3} 
         sx={{ 
@@ -36,30 +38,87 @@ const URLAnalysisResult = ({ analysis, isLoading }) => {
           mb: 3, 
           background: gradientBg,
           border: `1px solid ${themeColor}`,
-          boxShadow: `0 3px 5px 2px ${isMalicious ? 'rgba(255, 0, 0, .3)' : 'rgba(0, 255, 0, .3)'}`
+          position: 'relative'
         }}
       >
-        <Grid container spacing={2} alignItems="center">
-          <Grid item>
-            {isMalicious ? (
-              <AlertTriangle size={32} color="#ff0000" />
-            ) : (
-              <Shield size={32} color="#00ff00" />
-            )}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start'
+        }}>
+          <Grid container spacing={2} alignItems="center" sx={{ flexGrow: 1, mr: 2 }}>
+            <Grid item>
+              {isMalicious ? (
+                <AlertTriangle size={32} color="#ff0000" />
+              ) : (
+                <Shield size={32} color="#00ff00" />
+              )}
+            </Grid>
+            <Grid item xs>
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ color: themeColor }}
+              >
+                {analysis.prediction.result}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Confidence: {(analysis.prediction.confidence * 100).toFixed(2)}%
+              </Typography>
+            </Grid>
           </Grid>
-          <Grid item xs>
-            <Typography 
-              variant="h6" 
-              component="div" 
-              sx={{ color: themeColor }}
-            >
-              {analysis.prediction.result}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Confidence: {(analysis.prediction.confidence * 100).toFixed(2)}%
-            </Typography>
-          </Grid>
-        </Grid>
+          
+          <Button
+  variant="contained"
+  startIcon={<MessageSquare className="animated-icon" />}
+  onClick={() => setFeedbackOpen(true)}
+  sx={{
+    background: 'rgba(0, 0, 0, 0.7)',
+    border: '2px solid',
+    borderColor: themeColor,
+    backdropFilter: 'blur(4px)',
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: '0.95rem',
+    padding: '10px 20px',
+    position: 'relative',
+    overflow: 'hidden',
+    '&:before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: `linear-gradient(45deg, transparent, ${themeColor}22, transparent)`,
+      animation: 'shine 2s infinite',
+    },
+    '@keyframes shine': {
+      '0%': {
+        transform: 'translateX(-100%)',
+      },
+      '100%': {
+        transform: 'translateX(100%)',
+      },
+    },
+    '&:hover': {
+      background: isMalicious 
+        ? 'rgba(255, 0, 0, 0.3)'
+        : 'rgba(0, 255, 0, 0.3)',
+      transform: 'scale(1.05)',
+      boxShadow: isMalicious
+        ? '0 0 20px rgba(255, 0, 0, 0.5), inset 0 0 10px rgba(255, 0, 0, 0.3)'
+        : '0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 10px rgba(0, 255, 0, 0.3)',
+    },
+    transition: 'all 0.3s ease',
+    boxShadow: isMalicious
+      ? '0 0 15px rgba(255, 0, 0, 0.4), inset 0 0 5px rgba(255, 0, 0, 0.2)'
+      : '0 0 15px rgba(0, 255, 0, 0.4), inset 0 0 5px rgba(0, 255, 0, 0.2)',
+  }}
+>
+  Provide Feedback
+</Button>
+        </Box>
       </Paper>
 
       {/* Trust Analysis */}
@@ -71,7 +130,7 @@ const URLAnalysisResult = ({ analysis, isLoading }) => {
             height: '100%',
             border: `1px solid ${themeColor}`
           }}>
-            <Typography variant="h6" color={statusColor} gutterBottom>
+            <Typography variant="h6" color={isMalicious ? 'error' : 'primary'} gutterBottom>
               Trust Indicators
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -80,7 +139,7 @@ const URLAnalysisResult = ({ analysis, isLoading }) => {
                   <Chip
                     key={index}
                     label={indicator}
-                    color={statusColor}
+                    color={isMalicious ? 'error' : 'primary'}
                     variant="outlined"
                     icon={<Check size={16} />}
                     sx={{ m: 0.5 }}
@@ -99,7 +158,7 @@ const URLAnalysisResult = ({ analysis, isLoading }) => {
             p: 2, 
             background: gradientBg,
             height: '100%',
-            border: isMalicious ? '1px solid #ff0000' : '1px solid transparent'
+            border: `1px solid ${themeColor}`
           }}>
             <Typography variant="h6" color="error" gutterBottom>
               Concerns
@@ -113,11 +172,7 @@ const URLAnalysisResult = ({ analysis, isLoading }) => {
                     color="error"
                     variant="outlined"
                     icon={<AlertTriangle size={16} />}
-                    sx={{ 
-                      m: 0.5,
-                      borderColor: '#ff0000',
-                      '& .MuiChip-icon': { color: '#ff0000' }
-                    }}
+                    sx={{ m: 0.5 }}
                   />
                 ))
               ) : (
@@ -129,6 +184,12 @@ const URLAnalysisResult = ({ analysis, isLoading }) => {
           </Paper>
         </Grid>
       </Grid>
+            {/* Feedback Dialog */}
+            <URLFeedbackDialog 
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        url={analysis?.url}
+      />
 
       {/* Recommendation */}
       <Paper 
