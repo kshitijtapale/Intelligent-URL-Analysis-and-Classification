@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { TextField, Button, Box, Typography, CircularProgress, Paper, Grow } from '@mui/material';
+import { TextField, Button, Box, Typography, CircularProgress, Paper } from '@mui/material';
 import { styled } from '@mui/system';
-import { detectURL } from '../services/api';
+import { detectURLWithExplanation } from '../services/api';
 import LockIcon from '@mui/icons-material/Lock';
 import ErrorIcon from '@mui/icons-material/Error';
+import URLAnalysisResult from './URLAnalysisResult';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -12,78 +13,78 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   boxShadow: '0 3px 5px 2px rgba(0, 255, 0, .3)',
 }));
 
-const ResultBox = styled(Box)(({ theme, ismalicious }) => ({
-  marginTop: theme.spacing(2),
-  padding: theme.spacing(2),
-  borderRadius: theme.shape.borderRadius,
-  background: ismalicious === 'true' ? 'rgba(255, 0, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)',
-  border: `1px solid ${ismalicious === 'true' ? theme.palette.error.main : theme.palette.primary.main}`,
-}));
-
 function URLDetectorForm() {
   const [url, setUrl] = useState('');
-  const [result, setResult] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const ensureHttpPrefix = (url) => {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return `https://${url}`;
+    }
+    return url;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setResult(null);
+    setAnalysis(null);
+
     try {
-      const data = await detectURL(url);
-      setResult(data.prediction);
+      // Format URL before sending
+      const formattedUrl = ensureHttpPrefix(url.trim());
+      console.log('Submitting URL:', formattedUrl); // Debug log
+
+      const response = await detectURLWithExplanation(formattedUrl);
+      console.log('Received response:', response); // Debug log
+      setAnalysis(response);
     } catch (err) {
-      setError('An error occurred while detecting the URL.');
+      console.error('Error details:', err.response?.data); // Debug log
+      setError(err.response?.data?.detail || 'An error occurred while analyzing the URL.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <StyledPaper elevation={3}>
-      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-        <TextField
-          fullWidth
-          label="Enter URL"
-          variant="outlined"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          margin="normal"
-          InputProps={{
-            startAdornment: <LockIcon color="primary" sx={{ mr: 1 }} />,
-          }}
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          color="primary"
-          disabled={loading}
-          sx={{ mt: 2, width: '100%' }}
-        >
-          {loading ? <CircularProgress size={24} /> : 'Scan URL'}
-        </Button>
-        <Grow in={result !== null}>
-          <ResultBox ismalicious={result?.toString()}>
-            <Typography variant="h6" color={result ? 'error' : 'primary'}>
-              {result ? 'Malicious URL Detected!' : 'URL is Safe'}
-            </Typography>
-            <Typography variant="body1">
-              {result
-                ? 'This URL may be harmful. Proceed with caution.'
-                : 'No threats detected. Stay vigilant!'}
-            </Typography>
-          </ResultBox>
-        </Grow>
-        {error && (
-          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', color: 'error.main' }}>
-            <ErrorIcon sx={{ mr: 1 }} />
-            <Typography>{error}</Typography>
-          </Box>
-        )}
-      </Box>
-    </StyledPaper>
+    <Box sx={{ width: '100%' }}>
+      <StyledPaper elevation={3}>
+        <Box component="form" onSubmit={handleSubmit} noValidate>
+          <TextField
+            fullWidth
+            label="Enter URL to scan"
+            placeholder="example.com"
+            variant="outlined"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            margin="normal"
+            InputProps={{
+              startAdornment: <LockIcon color="primary" sx={{ mr: 1 }} />,
+            }}
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={loading || !url.trim()}
+            sx={{ mt: 2, width: '100%' }}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Scan URL'}
+          </Button>
+
+          {error && (
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', color: 'error.main' }}>
+              <ErrorIcon sx={{ mr: 1 }} />
+              <Typography>{error}</Typography>
+            </Box>
+          )}
+        </Box>
+      </StyledPaper>
+
+      <URLAnalysisResult analysis={analysis} isLoading={loading} />
+    </Box>
   );
 }
 

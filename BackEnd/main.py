@@ -21,14 +21,33 @@ from fastapi import FastAPI, HTTPException, Depends
 from app.models.url_feedback import init_db, get_db
 from app.models.init_db import create_database
 from app.ml.url_analyzer import URLAnalyzer
+import configparser
+from pathlib import Path
+
+
+# Load configuration
+config = configparser.ConfigParser()
+config.read('swagger_config.ini')
+
+tags_metadata = [
+    {
+        "name": section,
+        "description": config[section]["description"]
+    }
+    for section in config.sections()
+]
 
 logger = setup_logger(__name__)
 
-app = FastAPI(title="Malicious URL Detector", version="1.0.0")
-
+app = FastAPI(title="Malicious URL Detector", version="1.0.0", openapi_tags=tags_metadata)
+# Configuration allowing both Chrome extension and React app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["chrome-extension://"],
+        allow_origins=[
+        "http://localhost:3000",  # React development server
+        "chrome-extension://*",    # Chrome extensions
+        "http://localhost:5173",   # Vite default port (if you're using Vite)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -169,7 +188,7 @@ def get_adaptive_learner():
 # New API endpoint for data ingestion and transformation
 
 
-@app.post("/api/ingest_transform_data", response_model=Dict[str, str])
+@app.post("/api/ingest_transform_data", response_model=Dict[str, str], tags=["Preprocessing"])
 async def ingest_transform_data(
     data_ingestion_transformation: DataIngestionTransformation = Depends(
         get_data_ingestion_transformation),
@@ -202,12 +221,13 @@ async def ingest_transform_data(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/extract_features", response_model=FeatureExtractionOutput)
+@app.post("/api/extract_features", response_model=FeatureExtractionOutput, tags=["Preprocessing"])
 async def extract_features(
     file: UploadFile = File(None),
     check_google_index: bool = Form(False),
     bulk_extractor: BulkFeatureExtractor = Depends(get_bulk_extractor)
 ):
+    
     try:
         output_file = await bulk_extractor.extract_features_from_csv(check_google_index, file)
         return FeatureExtractionOutput(output_file_path=output_file)
@@ -217,7 +237,7 @@ async def extract_features(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@app.post("/api/train_model")
+@app.post("/api/train_model", tags=["Model Training"])
 async def train_model(
     model_trainer: ModelTrainer = Depends(get_model_trainer),
     data_ingestion_transformation: DataIngestionTransformation = Depends(
@@ -264,7 +284,7 @@ async def train_model(
         )
 
 
-@app.post("/api/predict_url", response_model=Dict[str, Any])
+@app.post("/api/predict_url", response_model=Dict[str, Any], tags=["Prediction"])
 async def predict_url(
     url_input: URLInput,
     url_predictor: URLPredictor = Depends(get_url_predictor)
@@ -280,7 +300,7 @@ async def predict_url(
         )
 
 
-@app.post("/api/feedback")
+@app.post("/api/feedback", tags=["Adaptive Learning"])
 async def process_feedback(
     feedback: FeedbackInput,
     db: Session = Depends(get_db),
@@ -302,7 +322,7 @@ async def process_feedback(
         )
 
 
-@app.post("/api/retrain")
+@app.post("/api/retrain", tags=["Adaptive Learning"])
 async def retrain_model(
     db: Session = Depends(get_db),
     adaptive_learner: AdaptiveLearner = Depends(get_adaptive_learner)
@@ -318,7 +338,7 @@ async def retrain_model(
         )
 
 
-@app.get("/api/training_stats")
+@app.get("/api/training_stats", tags=["Adaptive Learning"])
 async def get_training_stats(
     db: Session = Depends(get_db),
     adaptive_learner: AdaptiveLearner = Depends(get_adaptive_learner)
@@ -334,7 +354,7 @@ async def get_training_stats(
         )
 
 
-@app.post("/api/predict_with_explanation")
+@app.post("/api/predict_with_explanation", tags=["Prediction"])
 async def predict_url_with_explanation(
     url_input: URLInput,
     url_predictor: URLPredictor = Depends(get_url_predictor),

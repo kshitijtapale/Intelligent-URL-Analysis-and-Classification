@@ -25,7 +25,7 @@ function Header() {
       <Toolbar>
         <SecurityIcon sx={{ mr: 2 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-          CyberGuard URL Detector
+          Intelligent URL Detector
         </Typography>
         {isMobile ? (
           <>
