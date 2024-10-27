@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, HttpUrl, confloat
+from pydantic import BaseModel, HttpUrl, confloat, condecimal
 import uvicorn
 from typing import List, Dict, Optional, Any, Tuple
 import os
@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from fastapi import FastAPI, HTTPException, Depends
 from app.models.url_feedback import init_db, get_db
 from app.models.init_db import create_database
-
+from app.ml.url_analyzer import URLAnalyzer
 
 logger = setup_logger(__name__)
 
@@ -33,6 +33,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 @app.on_event("startup")
 async def startup_event():
     try:
@@ -43,35 +45,44 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
-    
+
 # Request and Response Models
+
+
 class URLInput(BaseModel):
     url: HttpUrl
 
+
 class FeatureOutput(BaseModel):
     features: dict
+
 
 class PredictionOutput(BaseModel):
     url: str
     prediction: str
     confidence: float
-    
+
+
 class FeatureExtractionInput(BaseModel):
     check_google_index: bool = False
 
+
 class FeatureExtractionOutput(BaseModel):
     output_file_path: str
+
 
 class DataIngestionOutput(BaseModel):
     message: str
     train_data_path: str
     test_data_path: str
 
+
 class DataTransformationOutput(BaseModel):
     message: str
     transformed_train_path: str
     transformed_test_path: str
     preprocessor_path: str
+
 
 class ModelTrainingOutput(BaseModel):
     message: str
@@ -84,6 +95,8 @@ class ModelTrainingOutput(BaseModel):
     classification_report: str
 
 # Dependency Injection
+
+
 def get_bulk_extractor():
     return BulkFeatureExtractor()
 
@@ -91,20 +104,23 @@ def get_bulk_extractor():
 def get_model_trainer():
     return ModelTrainer()
 
+
 def get_data_ingestion_transformation():
     return DataIngestionTransformation()
+
 
 def get_url_predictor():
     return URLPredictor()
 
 
-
 def get_feature_extractor():
     return FeatureExtractor()
+
 
 @app.get("/")
 async def root():
     return {"message": "Welcome to the Malicious URL Detector API"}
+
 
 class PredictionOutput(BaseModel):
     url: str
@@ -112,6 +128,7 @@ class PredictionOutput(BaseModel):
     confidence: float
     feature_contributions: Dict[str, float]
     top_indicators: List[Tuple[str, float]]
+
 
 class ModelTrainingOutput(BaseModel):
     message: str
@@ -122,12 +139,14 @@ class ModelTrainingOutput(BaseModel):
     best_model_file_path: str
 
 # Update the response models
-   
+
+
 class ModelPerformance(BaseModel):
     accuracy: float
     precision: float
     recall: float
     f1_score: float
+
 
 class ModelTrainingResponse(BaseModel):
     message: str
@@ -137,34 +156,41 @@ class ModelTrainingResponse(BaseModel):
     best_model_file_path: str
     all_models_performance: Dict[str, ModelPerformance]
 
+
 class FeedbackInput(BaseModel):
     url: HttpUrl
     is_malicious: bool
     confidence: confloat(ge=0.0, le=1.0)
 
+
 def get_adaptive_learner():
     return AdaptiveLearner()
 
 # New API endpoint for data ingestion and transformation
+
+
 @app.post("/api/ingest_transform_data", response_model=Dict[str, str])
 async def ingest_transform_data(
-    data_ingestion_transformation: DataIngestionTransformation = Depends(get_data_ingestion_transformation),
+    data_ingestion_transformation: DataIngestionTransformation = Depends(
+        get_data_ingestion_transformation),
     custom_file: UploadFile = File(None)
 ):
     try:
         custom_file_path = None
         if custom_file:
             # Save the uploaded file temporarily
-            custom_file_path = os.path.join(settings.EXTRACTED_DATA, f"custom_{custom_file.filename}")
+            custom_file_path = os.path.join(
+                settings.EXTRACTED_DATA, f"custom_{custom_file.filename}")
             with open(custom_file_path, "wb") as buffer:
                 content = await custom_file.read()
                 buffer.write(content)
-        
-        train_arr, test_arr, preprocessor_file = data_ingestion_transformation.initiate_data_ingestion_transformation(custom_file_path)
-        
+
+        train_arr, test_arr, preprocessor_file = data_ingestion_transformation.initiate_data_ingestion_transformation(
+            custom_file_path)
+
         if custom_file_path:
             os.remove(custom_file_path)  # Clean up the temporary file
-        
+
         return {
             "message": "Data ingestion and transformation completed successfully",
             "train_data_path": data_ingestion_transformation.train_data_path,
@@ -174,7 +200,6 @@ async def ingest_transform_data(
     except Exception as e:
         logger.error(f"Error in data ingestion and transformation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @app.post("/api/extract_features", response_model=FeatureExtractionOutput)
@@ -188,17 +213,21 @@ async def extract_features(
         return FeatureExtractionOutput(output_file_path=output_file)
     except Exception as e:
         logger.error(f"Error in feature extraction: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @app.post("/api/train_model")
 async def train_model(
     model_trainer: ModelTrainer = Depends(get_model_trainer),
-    data_ingestion_transformation: DataIngestionTransformation = Depends(get_data_ingestion_transformation)
+    data_ingestion_transformation: DataIngestionTransformation = Depends(
+        get_data_ingestion_transformation)
 ):
     try:
-        train_path = os.path.join(settings.TRAIN_DATA_DIR, "transformed_train_data.csv")
-        test_path = os.path.join(settings.TEST_DATA_DIR, "transformed_test_data.csv")
+        train_path = os.path.join(
+            settings.TRAIN_DATA_DIR, "transformed_train_data.csv")
+        test_path = os.path.join(
+            settings.TEST_DATA_DIR, "transformed_test_data.csv")
 
         if not os.path.exists(train_path) or not os.path.exists(test_path):
             raise HTTPException(
@@ -214,7 +243,8 @@ async def train_model(
         X_test = test_df.drop('label', axis=1)
         y_test = test_df['label']
 
-        training_results = model_trainer.initiate_model_training(X_train, y_train, X_test, y_test)
+        training_results = model_trainer.initiate_model_training(
+            X_train, y_train, X_test, y_test)
 
         return {
             "message": training_results["message"],
@@ -229,7 +259,8 @@ async def train_model(
         logger.error(f"Unexpected error in model training: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"An unexpected error occurred during model training: {str(e)}"
+            detail=f"An unexpected error occurred during model training: {
+                str(e)}"
         )
 
 
@@ -247,6 +278,7 @@ async def predict_url(
             status_code=500,
             detail=f"An unexpected error occurred during prediction: {str(e)}"
         )
+
 
 @app.post("/api/feedback")
 async def process_feedback(
@@ -268,7 +300,8 @@ async def process_feedback(
             status_code=500,
             detail=f"Error processing feedback: {str(e)}"
         )
-        
+
+
 @app.post("/api/retrain")
 async def retrain_model(
     db: Session = Depends(get_db),
@@ -283,7 +316,8 @@ async def retrain_model(
             status_code=500,
             detail=f"Error retraining model: {str(e)}"
         )
-        
+
+
 @app.get("/api/training_stats")
 async def get_training_stats(
     db: Session = Depends(get_db),
@@ -297,6 +331,42 @@ async def get_training_stats(
         raise HTTPException(
             status_code=500,
             detail=f"Error getting training stats: {str(e)}"
+        )
+
+
+@app.post("/api/predict_with_explanation")
+async def predict_url_with_explanation(
+    url_input: URLInput,
+    url_predictor: URLPredictor = Depends(get_url_predictor),
+    url_analyzer: URLAnalyzer = Depends(lambda: URLAnalyzer())
+) -> Dict[str, Any]:
+    try:
+        # Get basic prediction
+        prediction = url_predictor.predict(str(url_input.url))
+
+        # Convert prediction to expected format
+        prediction_result = {
+            "result": prediction.get("result", "Unknown"),
+            "confidence": float(prediction.get("confidence", 0.0)),
+            "is_malicious": bool(prediction.get("is_malicious", False))
+        }
+
+        # Get analysis (synchronous call)
+        analysis_result = url_analyzer.analyze_url(
+            str(url_input.url), prediction_result)
+
+        # Combine results
+        return {
+            "url": str(url_input.url),
+            "prediction": prediction_result,
+            "analysis": analysis_result
+        }
+
+    except Exception as e:
+        logger.error(f"Error in URL prediction and analysis: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
         )
 
 if __name__ == "__main__":
