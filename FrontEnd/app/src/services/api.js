@@ -11,7 +11,7 @@ export const detectURLWithExplanation = async (url) => {
   try {
     const response = await axios({
       method: 'post',
-      url: `${API_URL}/api/predict_with_explanation`,
+      url: `${API_URL}/api/detailed_prediction`,
       data: requestData,
       headers: {
         'Content-Type': 'application/json',

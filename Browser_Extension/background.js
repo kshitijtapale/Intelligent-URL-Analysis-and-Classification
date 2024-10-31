@@ -16,7 +16,7 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
 function updateIconForTab(tabId) {
   const status = tabStatuses[tabId];
   if (status === 'malicious') {
-    chrome.browserAction.setIcon({
+    chrome.action.setIcon({
       path: {
         "16": "icons/danger16.png",
         "48": "icons/danger48.png",
@@ -25,7 +25,7 @@ function updateIconForTab(tabId) {
       tabId: tabId
     });
   } else {
-    chrome.browserAction.setIcon({
+    chrome.action.setIcon({
       path: {
         "16": "icons/safe16.png",
         "48": "icons/safe48.png",
@@ -36,36 +36,47 @@ function updateIconForTab(tabId) {
   }
 }
 
-function checkURL(url, tabId) {
-  console.log("Checking URL:", url);
-  fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ url: url }),
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log("API response:", data);
-    if (data.result === "BEWARE MALICIOUS WEBSITE") {
-      console.log("Malicious website detected. Redirecting to blocked page.");
-      tabStatuses[tabId] = 'malicious';
-      updateIconForTab(tabId);
-      const encodedUrl = encodeURIComponent(url);
-      const blockedPageUrl = chrome.runtime.getURL(`blocked.html?blockedUrl=${encodedUrl}`);
-      chrome.tabs.update(tabId, {url: blockedPageUrl});
+async function checkURL(url, tabId) {
+  try {
+      console.log("Checking URL:", url);
+      const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: url }),
+      });
+
+      const data = await response.json();
+      console.log("API response:", data);
       
-      showMaliciousNotification(url);
-    } else {
-      console.log("Safe website detected.");
-      tabStatuses[tabId] = 'safe';
-      updateIconForTab(tabId);
-      showSafeNotification(url);
-    }
-    updatePopup(url, data.result);
-  })
-  .catch(error => console.error('Error:', error));
+      if (data.result === "BEWARE_MALICIOUS_WEBSITE") {
+          console.log("Malicious website detected. Redirecting to blocked page.");
+          tabStatuses[tabId] = 'malicious';
+          updateIconForTab(tabId);
+          
+          // Properly encode the URL
+          const encodedUrl = encodeURIComponent(url);
+          console.log("Encoded URL:", encodedUrl); // Debug log
+          
+          // Create blocked page URL with encoded parameter
+          const blockedPageUrl = chrome.runtime.getURL(`blocked.html?blockedUrl=${encodedUrl}`);
+          console.log("Redirecting to:", blockedPageUrl); // Debug log
+          
+          // Update the tab
+          await chrome.tabs.update(tabId, { url: blockedPageUrl });
+          
+          showMaliciousNotification(url);
+      } else {
+          console.log("Safe website detected.");
+          tabStatuses[tabId] = 'safe';
+          updateIconForTab(tabId);
+          showSafeNotification(url);
+      }
+      updatePopup(url, data.result);
+  } catch (error) {
+      console.error('Error in checkURL:', error);
+  }
 }
 
 function showSafeNotification(url) {

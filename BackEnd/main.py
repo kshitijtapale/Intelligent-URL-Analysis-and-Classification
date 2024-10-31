@@ -115,7 +115,6 @@ class ModelTrainingOutput(BaseModel):
 
 # Dependency Injection
 
-
 def get_bulk_extractor():
     return BulkFeatureExtractor()
 
@@ -158,7 +157,6 @@ class ModelTrainingOutput(BaseModel):
     best_model_file_path: str
 
 # Update the response models
-
 
 class ModelPerformance(BaseModel):
     accuracy: float
@@ -354,7 +352,7 @@ async def get_training_stats(
         )
 
 
-@app.post("/api/predict_with_explanation", tags=["Prediction"])
+@app.post("/api/detailed_prediction", tags=["Prediction"])
 async def predict_url_with_explanation(
     url_input: URLInput,
     url_predictor: URLPredictor = Depends(get_url_predictor),

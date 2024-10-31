@@ -1,21 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Malicious URL Detector</title>
-  <style>
-    body { width: 300px; padding: 10px; font-family: Arial, sans-serif; }
-    h2 { margin-top: 0; }
-    #status { padding: 10px; border-radius: 5px; margin-top: 10px; }
-    .safe { background-color: #e8f5e9; color: #2e7d32; }
-    .malicious { background-color: #ffebee; color: #c62828; }
-  </style>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            width: 300px;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            margin: 0;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        #currentUrl {
+            margin: 10px 0;
+            word-break: break-all;
+            font-weight: bold;
+        }
+        #status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .safe {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .malicious {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+    </style>
 </head>
 <body>
-  <h2>Malicious URL Detector</h2>
-  <p>Current website:</p>
-  <div id="currentUrl"></div>
-  <div id="status"></div>
-
-  <script src="popup.js"></script>
+    <h2>URL Security Status</h2>
+    <div id="currentUrl"></div>
+    <div id="status"></div>
+    <script src="popup.js"></script>
 </body>
 </html>

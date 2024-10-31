@@ -28,7 +28,7 @@ function Footer() {
             <Typography variant="body2">
               Email: kshitijtaple@gmail.com
               <br />
-              Phone: +44 791 858 5743
+              Phone: +44 791 857 5643
             </Typography>
           </Grid>
           <Grid item xs={12} sm={4}>
@@ -42,7 +42,7 @@ function Footer() {
         </Grid>
         <Box mt={5}>
           <Typography variant="body2" color="text.secondary" align="center">
-            © {new Date().getFullYear()} CyberGuard URL Detector. All rights reserved.
+            © {new Date().getFullYear()} Intelligent URL Classification. All rights reserved.
           </Typography>
         </Box>
       </Container>

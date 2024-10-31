@@ -12,6 +12,7 @@ from app.logger import setup_logger
 from datetime import datetime
 from tqdm import tqdm
 from xgboost import XGBClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 logger = setup_logger(__name__)
 
@@ -23,6 +24,15 @@ class ModelTrainer:
         
        
         self.param_grids = {
+            'DecisionTree': {  
+                'model': DecisionTreeClassifier(random_state=42),
+                'params': {
+                    'max_depth': [5, 10, 15],
+                    'min_samples_split': [2, 5],
+                    'min_samples_leaf': [1, 2, 4],
+                    'class_weight': ['balanced']
+                }
+            },            
             'RandomForest': {
                 'model': RandomForestClassifier(random_state=42, n_jobs=-1),
                 'params': {
